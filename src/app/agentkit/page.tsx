@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
+import ReactMarkdown from "react-markdown";
 
 export default function AgentChatPage() {
   const [userMessage, setUserMessage] = useState("");
@@ -15,12 +16,56 @@ export default function AgentChatPage() {
   const disableLogout = !ready || (ready && !authenticated);
   console.log("Current user:", user);
 
-  // Clear Privy session on page load (adjust as needed) - fix keys
+  // Clear Privy session on page load (adjust as needed)
   useEffect(() => {
     localStorage.removeItem("privy:session");
     localStorage.removeItem("privy:connectedWallet");
   }, []);
 
+  // Function to fetch the welcome message from the agent.
+  // src/app/agentkit/page.tsx (excerpt)
+  const fetchWelcomeMessage = async () => {
+    try {
+      const res = await fetch("/api/agentkit/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Send an empty message plus extra info so that the backend can decide what to say.
+        body: JSON.stringify({
+          userMessage: "",
+          userWallet: user?.wallet?.address,
+          baseName: user?.profile?.baseName || null, // extra field for personalization
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setChatLog((prev) => [
+          ...prev,
+          { sender: "Agent", message: `Error: ${data.error}` },
+        ]);
+      } else {
+        setChatLog((prev) => [
+          ...prev,
+          { sender: "Agent", message: data.response || "No response" },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error fetching welcome message:", error);
+      setChatLog((prev) => [
+        ...prev,
+        { sender: "Agent", message: "Error fetching welcome message." },
+      ]);
+    }
+  };
+
+  // Automatically fetch the welcome message when the user and wallet are available.
+  useEffect(() => {
+    if (chatLog.length === 0 && user?.wallet?.address) {
+      fetchWelcomeMessage();
+    }
+    // Run this effect when the user (and wallet) changes.
+  }, [user]);
+
+  // Handler for sending manual messages from the user.
   const handleSendMessage = async () => {
     // Do nothing if there is no user message.
     if (userMessage.trim().length === 0) return;
@@ -109,8 +154,9 @@ export default function AgentChatPage() {
               }`}
             >
               <strong>{entry.sender}:</strong>
-
-              {entry.message}
+              <ReactMarkdown className="prose prose-sm">
+                {entry.message}
+              </ReactMarkdown>
             </div>
           ))}
         </div>

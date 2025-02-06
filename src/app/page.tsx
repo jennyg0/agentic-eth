@@ -93,30 +93,32 @@ const Home: NextPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
-        <h1 className="text-2xl font-bold text-center mb-6">
-          Crypto Onboarding Demo
+    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-6">
+      <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
+        <h1 className="text-2xl font-bold text-center text-gray-800 mb-6">
+          Crypto Onboarding
         </h1>
+
         {!senderWallet && (
           <div className="flex justify-center mb-6">
             <button
               onClick={connectWallet}
-              className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+              className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md shadow hover:bg-blue-700 transition focus:outline-none"
             >
               Connect Wallet
             </button>
           </div>
         )}
+
         {senderWallet && (
           <div>
-            <p className="text-center mb-4">
+            <p className="text-center mb-6 text-gray-700">
               <span className="font-semibold">Connected Wallet:</span>{" "}
               {senderWallet}
             </p>
-            <form onSubmit={handleOnboard} className="space-y-4">
+            <form onSubmit={handleOnboard} className="space-y-6">
               <div>
-                <label className="block text-gray-700 mb-1" htmlFor="email">
+                <label htmlFor="email" className="block text-gray-700 mb-2">
                   Recipient Email:
                 </label>
                 <input
@@ -125,11 +127,12 @@ const Home: NextPage = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="you@example.com"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                 />
               </div>
               <div>
-                <label className="block text-gray-700 mb-1" htmlFor="amount">
+                <label htmlFor="amount" className="block text-gray-700 mb-2">
                   Amount (ETH):
                 </label>
                 <input
@@ -139,21 +142,23 @@ const Home: NextPage = () => {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="0.001"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+                className="w-full py-2 bg-green-600 text-white rounded-md shadow hover:bg-green-700 transition focus:outline-none"
               >
                 {loading ? "Processing..." : "Onboard & Send Funds"}
               </button>
             </form>
           </div>
         )}
+
         {message && (
-          <p className="mt-4 text-center text-sm text-red-600">{message}</p>
+          <p className="mt-6 text-center text-sm text-red-600">{message}</p>
         )}
       </div>
     </div>
