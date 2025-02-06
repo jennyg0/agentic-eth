@@ -1,33 +1,31 @@
 import { NextResponse } from "next/server";
-import {
-  AgentKit,
-  CdpWalletProvider,
-  wethActionProvider,
-  walletActionProvider,
-  erc20ActionProvider,
-  cdpApiActionProvider,
-  cdpWalletActionProvider,
-  pythActionProvider,
-} from "@coinbase/agentkit";
-import { getLangChainTools } from "@coinbase/agentkit-langchain";
 import { HumanMessage } from "@langchain/core/messages";
 import { MemorySaver } from "@langchain/langgraph";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { ChatOpenAI } from "@langchain/openai";
 import * as fs from "fs";
 import * as dotenv from "dotenv";
+import { createRequire } from "module";
 
 dotenv.config();
-
-// This file will be used to persist your agent’s wallet data.
 const WALLET_DATA_FILE = "wallet_data.txt";
 
-/**
- * Initializes the Coinbase AgentKit agent.
- * Uses your wallet provider configuration and agentkit action providers.
- */
 async function initializeAgent() {
-  // Read existing wallet data from file if available.
+  // Use CommonJS require via createRequire to avoid circular dependency issues.
+  const require = createRequire(import.meta.url);
+  const agentkitModule = require("@coinbase/agentkit");
+  const AgentKit = agentkitModule.AgentKit;
+  const CdpWalletProvider = agentkitModule.CdpWalletProvider;
+  const wethActionProvider = agentkitModule.wethActionProvider;
+  const walletActionProvider = agentkitModule.walletActionProvider;
+  const erc20ActionProvider = agentkitModule.erc20ActionProvider;
+  const cdpApiActionProvider = agentkitModule.cdpApiActionProvider;
+  const cdpWalletActionProvider = agentkitModule.cdpWalletActionProvider;
+  const pythActionProvider = agentkitModule.pythActionProvider;
+
+  const { getLangChainTools } = await import("@coinbase/agentkit-langchain");
+
+  // Read stored wallet data if available.
   let walletDataStr: string | undefined;
   if (fs.existsSync(WALLET_DATA_FILE)) {
     try {
@@ -37,7 +35,7 @@ async function initializeAgent() {
     }
   }
 
-  // Configure your wallet provider.
+  // Configure wallet provider using environment variables.
   const config = {
     apiKeyName: process.env.CDP_API_KEY_NAME!,
     apiKeyPrivateKey: process.env.CDP_API_KEY_PRIVATE_KEY?.replace(
@@ -50,7 +48,6 @@ async function initializeAgent() {
 
   const walletProvider = await CdpWalletProvider.configureWithWallet(config);
 
-  // Initialize AgentKit with the wallet provider and action providers.
   const agentkit = await AgentKit.from({
     walletProvider,
     actionProviders: [
@@ -75,16 +72,12 @@ async function initializeAgent() {
     ],
   });
 
-  // Get LangChain tools from AgentKit.
   const tools = await getLangChainTools(agentkit);
-
-  // Use in-memory storage for conversation history.
   const memory = new MemorySaver();
   const agentConfig = {
     configurable: { thread_id: "CDP AgentKit Chatbot Example!" },
   };
 
-  // Create the agent using your Coinbase AgentKit configuration.
   const agent = createReactAgent({
     llm: new ChatOpenAI({
       model: "gpt-4o-mini",
@@ -92,53 +85,47 @@ async function initializeAgent() {
     tools,
     checkpointSaver: memory,
     messageModifier: `
-      You are a helpful agent that can interact onchain using the Coinbase Developer Platform AgentKit.
-      You have access to several tools that let you perform onchain operations.
-      If you ever need funds, you can request them from the faucet if you are on network 'base-sepolia'.
-      If a request cannot be fulfilled due to missing capabilities, kindly explain what is missing.
-      Please be concise and clear in your responses.
+      You are a helpful onchain assistant with the ability to advise users on trading strategies, getting a basename and education onboarding into crypto.
+      Explain concepts when necessary and perform onchain operations using the AgentKit when asked by the user.
+      Your response should change based on the information the user has provided and is stored in their profile. 
+      For new users, invite them to share more about themselves so you can provide personalized suggestions.
+      Don't ask them to set up a wallet because they already have one.
     `,
   });
 
-  // Export and persist wallet data.
   const exportedWallet = await walletProvider.exportWallet();
   fs.writeFileSync(WALLET_DATA_FILE, JSON.stringify(exportedWallet));
 
   return { agent, config: agentConfig };
 }
 
-/**
- * API Route POST handler.
- *
- * Expects a JSON body with:
- * - `userMessage` (optional): The message from the user.
- * - `userWallet` (optional): The user's wallet address.
- *
- * If no userMessage is provided (or if it’s empty after trimming), a starting greeting is used.
- */
 export async function POST(request: Request) {
   try {
-    const { userMessage, userWallet } = await request.json();
+    const { userMessage, userWallet, baseName } = await request.json();
 
-    // If no user message is provided, use a default starting greeting.
-    const messageToSend =
-      userMessage && userMessage.trim().length > 0
-        ? userMessage
-        : "Hello! I'm your onchain assistant powered by Coinbase AgentKit. How can I help you today?";
+    // Build a dynamic welcome message if userMessage is empty.
+    let messageToSend: string;
+    if (userMessage && userMessage.trim().length > 0) {
+      messageToSend = userMessage;
+    } else {
+      if (!baseName) {
+        // First-time user or user hasn't provided additional info.
+        messageToSend =
+          "Hello, welcome! It looks like you haven’t set up your onchain profile yet. Could you tell me a bit about yourself? I can help suggest a base name and recommend trading strategies based on your preferences.";
+      } else {
+        // Returning user with profile info.
+        messageToSend = `Welcome back, ${baseName}! How can I assist you today with your trading or onchain tasks?`;
+      }
+    }
 
-    // (Optionally) you can log the user's wallet address if needed.
     console.log("User wallet:", userWallet);
-
-    // Initialize the agent (or retrieve a cached instance in production).
     const { agent, config } = await initializeAgent();
 
-    // Send the (starting) message to the agent.
     const stream = await agent.stream(
       { messages: [new HumanMessage(messageToSend)] },
       config
     );
 
-    // Collect the streamed response.
     let fullResponse = "";
     for await (const chunk of stream) {
       if ("agent" in chunk && chunk.agent.messages?.[0]?.content) {
@@ -147,8 +134,6 @@ export async function POST(request: Request) {
         fullResponse += chunk.tools.messages[0].content;
       }
     }
-
-    // Return the agent's response.
     return NextResponse.json({ response: fullResponse });
   } catch (error: any) {
     console.error("API Error:", error);

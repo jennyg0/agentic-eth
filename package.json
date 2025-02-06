@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@coinbase/agentkit": "^0.1.1",
     "@coinbase/agentkit-langchain": "^0.1.0",
     "@coinbase/cdp-langchain": "^0.0.15",
     "@langchain/core": "^0.3.37",
