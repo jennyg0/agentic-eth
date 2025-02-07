@@ -33,7 +33,7 @@ export default function AgentChatPage() {
         body: JSON.stringify({
           userMessage: "",
           userWallet: user?.wallet?.address,
-          baseName: user?.profile?.baseName || null, // extra field for personalization
+          //baseName: user?.profile?.baseName || null, // extra field for personalization
         }),
       });
       const data = await res.json();
