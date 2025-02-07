@@ -62,10 +62,8 @@ export default function AgentChatPage() {
     if (chatLog.length === 0 && user?.wallet?.address) {
       fetchWelcomeMessage();
     }
-    // Run this effect when the user (and wallet) changes.
   }, [user]);
 
-  // Handler for sending manual messages from the user.
   const handleSendMessage = async () => {
     // Do nothing if there is no user message.
     if (userMessage.trim().length === 0) return;
@@ -142,7 +140,6 @@ export default function AgentChatPage() {
           </div>
         )}
 
-        {/* Chat Log */}
         <div className="h-80 overflow-y-auto border rounded-lg p-4 bg-gray-100 space-y-4">
           {chatLog.map((entry, idx) => (
             <div
@@ -161,7 +158,6 @@ export default function AgentChatPage() {
           ))}
         </div>
 
-        {/* Input Box */}
         <div className="flex mt-4">
           <input
             type="text"
