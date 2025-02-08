@@ -3,18 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import ReactMarkdown from "react-markdown";
-import { IdentityCard, useName } from "@coinbase/onchainkit/identity";
+import { IdentityCard, useName, Name } from "@coinbase/onchainkit/identity";
 import { baseSepolia } from "viem/chains";
-import {
-  Bot,
-  Mail,
-  Wallet,
-  Shield,
-  Gift,
-  ChevronRight,
-  CheckCircle,
-  Lock,
-} from "lucide-react";
+import { Gift, ChevronRight, Shield, CheckCircle } from "lucide-react";
 
 export default function OnboardingChatPage() {
   const [userMessage, setUserMessage] = useState("");
@@ -22,7 +13,7 @@ export default function OnboardingChatPage() {
     { sender: "User" | "Agent"; message: string }[]
   >([]);
   const [loading, setLoading] = useState(false);
-  const [stage, setStage] = useState("welcome");
+  const [stage, setStage] = useState("welcome"); // "welcome", "info", "complete"
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef(null);
 
@@ -31,7 +22,7 @@ export default function OnboardingChatPage() {
   const disableLogout = !ready || (ready && !authenticated);
 
   const { data: name, isLoading: nameIsLoading } = useName({
-    address: user?.wallet?.address as `0x${string}`,
+    address: user?.customMetadata?.walletAddress as `0x${string}`,
     chain: baseSepolia,
   });
 
@@ -44,10 +35,16 @@ export default function OnboardingChatPage() {
   }, [chatLog]);
 
   useEffect(() => {
-    if (user?.wallet?.address && chatLog.length === 0) {
+    if (authenticated && stage === "welcome") {
+      setStage("complete");
+    }
+  }, [authenticated, stage]);
+
+  useEffect(() => {
+    if (user?.wallet?.address && chatLog.length === 0 && !nameIsLoading) {
       fetchWelcomeMessage();
     }
-  }, [user, chatLog.length]);
+  }, [user, nameIsLoading]);
 
   const fetchWelcomeMessage = async () => {
     try {
@@ -58,8 +55,8 @@ export default function OnboardingChatPage() {
           userMessage: "",
           userWallet: user?.wallet?.address,
           baseName: name || null,
+          stage: "welcomemessage", // for the initial welcome message
           metadata: user?.customMetadata,
-          stage: stage, // Include current onboarding stage
         }),
       });
       const data = await res.json();
@@ -73,6 +70,8 @@ export default function OnboardingChatPage() {
           ...prev,
           { sender: "Agent", message: data.response || "No response" },
         ]);
+
+        setStage("complete");
       }
     } catch (error) {
       console.error("Error fetching welcome message:", error);
@@ -100,7 +99,7 @@ export default function OnboardingChatPage() {
           userWallet: user?.wallet?.address,
           baseName: name || null,
           metadata: user?.customMetadata,
-          stage: stage,
+          stage: "complete",
         }),
       });
       const data = await res.json();
@@ -114,7 +113,6 @@ export default function OnboardingChatPage() {
           ...prev,
           { sender: "Agent", message: data.response || "No response" },
         ]);
-        // Check if we should advance the stage based on the agent's response
         if (data.nextStage) {
           setStage(data.nextStage);
         }
@@ -138,6 +136,7 @@ export default function OnboardingChatPage() {
     }
   };
 
+  // Define stage components.
   const stages = {
     welcome: {
       component: (
@@ -148,11 +147,9 @@ export default function OnboardingChatPage() {
               <h3 className="text-lg font-semibold">You've Received Crypto!</h3>
             </div>
             <p className="text-gray-600">
-              Someone has sent you cryptocurrency! Let's help you claim it
-              safely.
+              Someone has sent you crypto! Let's help you claim it.
             </p>
           </div>
-
           {!authenticated && (
             <button
               onClick={login}
@@ -165,19 +162,32 @@ export default function OnboardingChatPage() {
         </div>
       ),
     },
-    setup: {
+    info: {
       component: (
         <div className="space-y-6 mb-6">
           <div className="bg-white/10 p-6 rounded-xl shadow-lg">
             <div className="flex items-center gap-3 mb-4">
               <Shield className="w-6 h-6 text-purple-400" />
-              <h3 className="text-lg font-semibold">Setting Up Your Wallet</h3>
+              <h3 className="text-lg font-semibold">
+                Getting Started in Crypto
+              </h3>
             </div>
             <p className="text-gray-600">
-              We're creating your secure wallet. Chat with our AI assistant
-              below for help!
+              Your wallet is ready to use. Our AI assistant is here to guide you
+              through the exciting world of crypto—from trading and yield
+              opportunities to NFTs and more.
+            </p>
+            <p className="text-gray-600">
+              When you're ready to dive in, click "Next" to begin chatting with
+              our assistant.
             </p>
           </div>
+          <button
+            onClick={() => setStage("complete")}
+            className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center gap-2 text-white hover:from-blue-600 hover:to-purple-600 transition-all"
+          >
+            Next
+          </button>
         </div>
       ),
     },
@@ -187,24 +197,17 @@ export default function OnboardingChatPage() {
           <div className="bg-green-500/20 p-6 rounded-xl">
             <div className="flex items-center gap-3 mb-4">
               <CheckCircle className="w-6 h-6 text-green-400" />
-              <h3 className="text-lg font-semibold">Wallet Ready!</h3>
+              <h3 className="text-lg font-semibold">All Set!</h3>
             </div>
             <p className="text-gray-600">
-              Your wallet is set up and your crypto is ready to use!
+              You're all set to explore the world of crypto with our AI
+              assistant.
             </p>
           </div>
         </div>
       ),
     },
   };
-
-  if (nameIsLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-pulse text-gray-600">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center p-4">
@@ -214,8 +217,6 @@ export default function OnboardingChatPage() {
           <h1 className="text-2xl font-bold text-gray-800 mb-4">
             Welcome to CryptoLaunch
           </h1>
-
-          {/* Auth Section */}
           {user && (
             <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
               <div>
@@ -224,9 +225,14 @@ export default function OnboardingChatPage() {
                   <span className="font-semibold">{user.email?.address}</span>
                 </div>
                 <div className="text-xs text-gray-500">
-                  <IdentityCard
-                    address={user?.wallet?.address as `0x${string}`}
+                  <Name
+                    key={name}
+                    address={
+                      user?.customMetadata?.walletAddress as `0x${string}`
+                    }
                     chain={baseSepolia}
+                    //className="h-24"
+                    // style={{ height: "96px" }}
                   />
                 </div>
               </div>
@@ -243,7 +249,9 @@ export default function OnboardingChatPage() {
 
         {/* Stage Component */}
         <div className="p-6 bg-gray-50">{stages[stage].component}</div>
-        {user && (
+
+        {/* Only show chat if the stage is "complete" */}
+        {user && stage === "complete" && (
           <>
             <div className="h-[400px] overflow-y-auto p-6 bg-gray-50">
               <div className="space-y-4">
@@ -296,40 +304,43 @@ export default function OnboardingChatPage() {
             </div>
           </>
         )}
-        {/* Progress indicator */}
-        <div className="px-6 py-4 bg-white border-t border-gray-100">
-          <div className="flex justify-between">
-            {Object.keys(stages).map((key, index) => (
-              <div
-                key={key}
-                className={`flex items-center ${
-                  index !== Object.keys(stages).length - 1 ? "flex-1" : ""
-                }`}
-              >
+
+        {/* Progress Indicator - only show if not complete */}
+        {stage !== "complete" && (
+          <div className="px-6 py-4 bg-white border-t border-gray-100">
+            <div className="flex justify-between">
+              {Object.keys(stages).map((key, index) => (
                 <div
-                  className={`w-4 h-4 rounded-full ${
-                    Object.keys(stages).indexOf(stage) >= index
-                      ? "bg-blue-500"
-                      : "bg-gray-200"
+                  key={key}
+                  className={`flex items-center ${
+                    index !== Object.keys(stages).length - 1 ? "flex-1" : ""
                   }`}
                 >
-                  {Object.keys(stages).indexOf(stage) > index && (
-                    <CheckCircle className="w-4 h-4 text-white" />
-                  )}
-                </div>
-                {index !== Object.keys(stages).length - 1 && (
                   <div
-                    className={`flex-1 h-1 mx-2 ${
-                      Object.keys(stages).indexOf(stage) > index
+                    className={`w-4 h-4 rounded-full ${
+                      Object.keys(stages).indexOf(stage) >= index
                         ? "bg-blue-500"
                         : "bg-gray-200"
                     }`}
-                  />
-                )}
-              </div>
-            ))}
+                  >
+                    {Object.keys(stages).indexOf(stage) > index && (
+                      <CheckCircle className="w-4 h-4 text-white" />
+                    )}
+                  </div>
+                  {index !== Object.keys(stages).length - 1 && (
+                    <div
+                      className={`flex-1 h-1 mx-2 ${
+                        Object.keys(stages).indexOf(stage) > index
+                          ? "bg-blue-500"
+                          : "bg-gray-200"
+                      }`}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
