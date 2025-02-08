@@ -4,23 +4,37 @@ import { useState, useEffect } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import ReactMarkdown from "react-markdown";
 
+import { IdentityCard, useName } from "@coinbase/onchainkit/identity";
+import { baseSepolia } from "viem/chains";
+
 export default function AgentChatPage() {
   const [userMessage, setUserMessage] = useState("");
   const [chatLog, setChatLog] = useState<
     { sender: "User" | "Agent"; message: string }[]
   >([]);
   const [loading, setLoading] = useState(false);
+  // const [name, setName] = useState<string | null>(null);
   const { ready, authenticated, login, logout, user } = usePrivy();
 
   const disableLogin = !ready || (ready && authenticated);
   const disableLogout = !ready || (ready && !authenticated);
   console.log("Current user:", user);
 
-  // Clear Privy session on page load (adjust as needed)
-  useEffect(() => {
-    localStorage.removeItem("privy:session");
-    localStorage.removeItem("privy:connectedWallet");
-  }, []);
+  const { data: name, isLoading: nameIsLoading } = useName({
+    address: "0x5df0379b9c74d600c943e1f05150703c734263e4",
+    chain: baseSepolia,
+  });
+
+  console.log("Name:", name);
+
+  // Clear Privy session on page load bc in docs says for injected wallets (browser extensions), users can only disconnect their wallet from your site through their wallet
+  //   useEffect(() => {
+  //     localStorage.removeItem("privy:token");
+  //     localStorage.removeItem("privy:refresh_token");
+  //     localStorage.removeItem("privy:connections");
+  //     localStorage.removeItem("privy:pat");
+  //     localStorage.removeItem("privy:caid");
+  //   }, []);
 
   // Function to fetch the welcome message from the agent.
   // src/app/agentkit/page.tsx (excerpt)
@@ -33,7 +47,7 @@ export default function AgentChatPage() {
         body: JSON.stringify({
           userMessage: "",
           userWallet: user?.wallet?.address,
-          //baseName: user?.profile?.baseName || null, // extra field for personalization
+          baseName: name || null, // extra field for personalization
         }),
       });
       const data = await res.json();
@@ -111,7 +125,10 @@ export default function AgentChatPage() {
         <h1 className="text-3xl font-bold mb-4 text-center text-gray-800">
           AgentKit Chat
         </h1>
-
+        <IdentityCard
+          address="0x5df0379b9c74D600C943e1F05150703C734263e4"
+          chain={baseSepolia}
+        />
         {/* User Info */}
         {user ? (
           <div className="mb-4 text-center text-sm text-gray-600">

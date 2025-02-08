@@ -1,8 +1,11 @@
-'use client';
+"use client";
 
-import {PrivyProvider} from '@privy-io/react-auth';
+import { PrivyProvider } from "@privy-io/react-auth";
+import type { ReactNode } from "react";
+import { OnchainKitProvider } from "@coinbase/onchainkit";
+import { baseSepolia } from "wagmi/chains"; // add baseSepolia for testing
 
-export default function Providers({children}: {children: React.ReactNode}) {
+export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? ""}
@@ -15,11 +18,16 @@ export default function Providers({children}: {children: React.ReactNode}) {
         // },
         // Create embedded wallets for users who don't have a wallet
         embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
+          createOnLogin: "users-without-wallets",
         },
       }}
     >
-      {children}
+      <OnchainKitProvider
+        apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
+        chain={baseSepolia} // add baseSepolia for testing
+      >
+        {children}
+      </OnchainKitProvider>
     </PrivyProvider>
   );
 }
