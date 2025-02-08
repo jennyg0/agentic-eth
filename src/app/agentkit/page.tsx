@@ -5,13 +5,24 @@ import { usePrivy } from "@privy-io/react-auth";
 import ReactMarkdown from "react-markdown";
 import { IdentityCard, useName } from "@coinbase/onchainkit/identity";
 import { baseSepolia } from "viem/chains";
+import {
+  Bot,
+  Mail,
+  Wallet,
+  Shield,
+  Gift,
+  ChevronRight,
+  CheckCircle,
+  Lock,
+} from "lucide-react";
 
-export default function AgentChatPage() {
+export default function OnboardingChatPage() {
   const [userMessage, setUserMessage] = useState("");
   const [chatLog, setChatLog] = useState<
     { sender: "User" | "Agent"; message: string }[]
   >([]);
   const [loading, setLoading] = useState(false);
+  const [stage, setStage] = useState("welcome");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef(null);
 
@@ -37,7 +48,7 @@ export default function AgentChatPage() {
       fetchWelcomeMessage();
     }
   }, [user, chatLog.length]);
-  console.log(user);
+
   const fetchWelcomeMessage = async () => {
     try {
       const res = await fetch("/api/agentkit/chat", {
@@ -48,6 +59,7 @@ export default function AgentChatPage() {
           userWallet: user?.wallet?.address,
           baseName: name || null,
           metadata: user?.customMetadata,
+          stage: stage, // Include current onboarding stage
         }),
       });
       const data = await res.json();
@@ -88,6 +100,7 @@ export default function AgentChatPage() {
           userWallet: user?.wallet?.address,
           baseName: name || null,
           metadata: user?.customMetadata,
+          stage: stage,
         }),
       });
       const data = await res.json();
@@ -101,6 +114,10 @@ export default function AgentChatPage() {
           ...prev,
           { sender: "Agent", message: data.response || "No response" },
         ]);
+        // Check if we should advance the stage based on the agent's response
+        if (data.nextStage) {
+          setStage(data.nextStage);
+        }
       }
     } catch (error) {
       console.error("Error sending message:", error);
@@ -121,10 +138,70 @@ export default function AgentChatPage() {
     }
   };
 
+  const stages = {
+    welcome: {
+      component: (
+        <div className="space-y-6 mb-6">
+          <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 p-6 rounded-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <Gift className="w-6 h-6 text-blue-400" />
+              <h3 className="text-lg font-semibold">You've Received Crypto!</h3>
+            </div>
+            <p className="text-gray-600">
+              Someone has sent you cryptocurrency! Let's help you claim it
+              safely.
+            </p>
+          </div>
+
+          {!authenticated && (
+            <button
+              onClick={login}
+              disabled={disableLogin}
+              className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center gap-2 text-white hover:from-blue-600 hover:to-purple-600 transition-all"
+            >
+              Get Started with Email <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      ),
+    },
+    setup: {
+      component: (
+        <div className="space-y-6 mb-6">
+          <div className="bg-white/10 p-6 rounded-xl shadow-lg">
+            <div className="flex items-center gap-3 mb-4">
+              <Shield className="w-6 h-6 text-purple-400" />
+              <h3 className="text-lg font-semibold">Setting Up Your Wallet</h3>
+            </div>
+            <p className="text-gray-600">
+              We're creating your secure wallet. Chat with our AI assistant
+              below for help!
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    complete: {
+      component: (
+        <div className="space-y-6 mb-6">
+          <div className="bg-green-500/20 p-6 rounded-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <CheckCircle className="w-6 h-6 text-green-400" />
+              <h3 className="text-lg font-semibold">Wallet Ready!</h3>
+            </div>
+            <p className="text-gray-600">
+              Your wallet is set up and your crypto is ready to use!
+            </p>
+          </div>
+        </div>
+      ),
+    },
+  };
+
   if (nameIsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-pulse text-gray-600">Loading identity...</div>
+        <div className="animate-pulse text-gray-600">Loading...</div>
       </div>
     );
   }
@@ -135,11 +212,11 @@ export default function AgentChatPage() {
         {/* Header */}
         <div className="bg-white border-b border-gray-100 p-6">
           <h1 className="text-2xl font-bold text-gray-800 mb-4">
-            AgentKit Chat
+            Welcome to CryptoLaunch
           </h1>
 
           {/* Auth Section */}
-          {user ? (
+          {user && (
             <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
               <div>
                 <div>
@@ -161,67 +238,96 @@ export default function AgentChatPage() {
                 Log out
               </button>
             </div>
-          ) : (
-            <button
-              disabled={disableLogin}
-              onClick={login}
-              className="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg transition-colors hover:bg-blue-700 disabled:opacity-50"
-            >
-              Sign In with Email
-            </button>
           )}
         </div>
 
-        {/* Chat Messages */}
-        <div className="h-[500px] overflow-y-auto p-6 bg-gray-50">
-          <div className="space-y-4">
-            {chatLog.map((entry, idx) => (
+        {/* Stage Component */}
+        <div className="p-6 bg-gray-50">{stages[stage].component}</div>
+        {user && (
+          <>
+            <div className="h-[400px] overflow-y-auto p-6 bg-gray-50">
+              <div className="space-y-4">
+                {chatLog.map((entry, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex ${
+                      entry.sender === "User" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    <div
+                      className={`max-w-[80%] p-4 rounded-2xl shadow-sm ${
+                        entry.sender === "Agent"
+                          ? "bg-white text-gray-800"
+                          : "bg-blue-600 text-white"
+                      }`}
+                    >
+                      <ReactMarkdown className="prose prose-sm max-w-none">
+                        {entry.message}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+            <div className="p-4 bg-white border-t border-gray-100">
+              <div className="flex items-center gap-2">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={userMessage}
+                  onChange={(e) => setUserMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Chat with your AI assistant..."
+                  className="flex-1 p-4 bg-gray-50 rounded-xl border-0 focus:ring-2 focus:ring-blue-500 transition-all"
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={loading || !userMessage.trim()}
+                  className="px-6 py-4 bg-blue-600 text-white rounded-xl transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    "Send"
+                  )}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+        {/* Progress indicator */}
+        <div className="px-6 py-4 bg-white border-t border-gray-100">
+          <div className="flex justify-between">
+            {Object.keys(stages).map((key, index) => (
               <div
-                key={idx}
-                className={`flex ${
-                  entry.sender === "User" ? "justify-end" : "justify-start"
+                key={key}
+                className={`flex items-center ${
+                  index !== Object.keys(stages).length - 1 ? "flex-1" : ""
                 }`}
               >
                 <div
-                  className={`max-w-[80%] p-4 rounded-2xl shadow-sm ${
-                    entry.sender === "Agent"
-                      ? "bg-white text-gray-800"
-                      : "bg-blue-600 text-white"
+                  className={`w-4 h-4 rounded-full ${
+                    Object.keys(stages).indexOf(stage) >= index
+                      ? "bg-blue-500"
+                      : "bg-gray-200"
                   }`}
                 >
-                  <ReactMarkdown className="prose prose-sm max-w-none">
-                    {entry.message}
-                  </ReactMarkdown>
+                  {Object.keys(stages).indexOf(stage) > index && (
+                    <CheckCircle className="w-4 h-4 text-white" />
+                  )}
                 </div>
+                {index !== Object.keys(stages).length - 1 && (
+                  <div
+                    className={`flex-1 h-1 mx-2 ${
+                      Object.keys(stages).indexOf(stage) > index
+                        ? "bg-blue-500"
+                        : "bg-gray-200"
+                    }`}
+                  />
+                )}
               </div>
             ))}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        {/* Input Area */}
-        <div className="p-4 bg-white border-t border-gray-100">
-          <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={userMessage}
-              onChange={(e) => setUserMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message..."
-              className="flex-1 p-4 bg-gray-50 rounded-xl border-0 focus:ring-2 focus:ring-blue-500 transition-all"
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={loading || !userMessage.trim()}
-              className="px-6 py-4 bg-blue-600 text-white rounded-xl transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                "Send"
-              )}
-            </button>
           </div>
         </div>
       </div>
