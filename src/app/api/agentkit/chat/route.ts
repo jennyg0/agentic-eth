@@ -10,8 +10,42 @@ import { createRequire } from "module";
 dotenv.config();
 const WALLET_DATA_FILE = "wallet_data.txt";
 
+// Instructions for new users (no basename)
+const newUserInstructions = `
+You are a friendly, efficient, and stateful crypto onboarding assistant operating only on the Base Sepolia network.
+Follow this checklist precisely:
+
+1. **Greet & Introduce:** 
+   - Welcome the user.
+   - Explain that you help set up their onchain profile and create a custom basename.
+2. **Collect Interests:** 
+   - Ask the user about their interests to tailor a suggestion for a basename.
+3. **Suggest Basenames:** 
+   - Offer personalized basename options and guide the registration process.
+4. **Post-Registration:** 
+   - Inform the user that their new basename replaces their long wallet address.
+5. **Offer Further Actions:** 
+   - Suggest activities such as sending a test transaction, yield opportunities, staking, NFT exploration, or accessing educational resources.
+
+**Error Handling:**  
+- Never include technical details.
+- On error, say: "There was an issue registering that basename. It might be taken or need a slight variation. Would you like to try another option?"
+
+Always keep your responses clear, friendly, and concise. Use simple, non-technical language
+`;
+
+// Instructions for returning users (with a basename)
+const returningUserInstructions = `
+You are a friendly and knowledgeable crypto assistant on the Base Sepolia network.
+Greet the user by their existing basename and assist them with their onchain activities.
+When the user asks for information or actions, focus on tasks like trading, learning, or other onchain transactions.
+
+Always keep your responses clear, friendly, and concise. Use simple, non-technical language. Provide visual aids and examples. Warn about common scams and risks. Emphasize the importance of wallet security. Break down complex concepts into digestible pieces.
+If you can't perform the action, say that you're unable to help with that task and suggest a resource or alternative action.
+`;
+
 async function initializeAgent() {
-  // Use CommonJS require via createRequire to avoid circular dependency issues error
+  // Use CommonJS require via createRequire to avoid circular dependency issues
   const require = createRequire(import.meta.url);
   const agentkitModule = require("@coinbase/agentkit");
   const AgentKit = agentkitModule.AgentKit;
@@ -27,7 +61,7 @@ async function initializeAgent() {
   const { getLangChainTools } = await import("@coinbase/agentkit-langchain");
 
   // Read stored wallet data if available.
-  let walletDataStr: string | undefined;
+  let walletDataStr;
   if (fs.existsSync(WALLET_DATA_FILE)) {
     try {
       walletDataStr = fs.readFileSync(WALLET_DATA_FILE, "utf8");
@@ -75,33 +109,17 @@ async function initializeAgent() {
   });
 
   const tools = await getLangChainTools(agentkit);
+  // Use a fresh memory for each conversation to avoid residual onboarding context
   const memory = new MemorySaver();
   const agentConfig = {
     configurable: { thread_id: "CDP AgentKit Chatbot Example!" },
   };
 
+  // Create the agent without a static messageModifier so we can pass our system message per request
   const agent = createReactAgent({
-    llm: new ChatOpenAI({
-      model: "gpt-4o-mini",
-    }),
+    llm: new ChatOpenAI({ model: "gpt-4o-mini" }),
     tools,
     checkpointSaver: memory,
-    messageModifier: `
-    You are a friendly, efficient, and stateful crypto onboarding assistant only on base sepolia network. Follow this checklist:
-  
-    1. **Greet & Introduce:** Welcome the user and explain how you help set up their onchain profile and basename. If they already have a basename, greet them by name.
-    2. **Collect Interests:** Ask about interests to tailor basename suggestions.
-    3. **Suggest Basenames:** Offer personalized basename options and once confirmed, proceed with registration using the onchain action provider.
-    6. **Post-Registration:** Inform the user that their new basename replaces their long wallet address.
-       - Explain: "Your basename is now your onchain identifier. You can send funds or perform other actions using basenames."
-    7. **Offer Further Actions:** Suggest sending a test transaction back to the person that sent them eth or trying other onchain actions, like signing messages or trading, education materials like cyfrin and speedruneth or explore social apps like farcaster
-    
-    **Error Handling:**  
-    - NEVER include technical details (wallet addresses, error logs, etc.).  
-    - If an error occurs, simply say: "There was an issue registering that basename. It might be taken or need a slight variation. Would you like to try another option?"
-    
-    Always keep your responses clear, friendly, and concise.
-  `,
   });
 
   const exportedWallet = await walletProvider.exportWallet();
@@ -114,17 +132,19 @@ export async function POST(request: Request) {
   try {
     const { userMessage, userWallet, baseName } = await request.json();
 
-    // Build a dynamic welcome message if userMessage is empty.
-    let messageToSend: string;
+    // Select system instructions based on whether the user already has a basename.
+    const systemMessage = baseName
+      ? returningUserInstructions
+      : newUserInstructions;
+
+    // Build a dynamic greeting message.
+    let messageToSend;
     if (userMessage && userMessage.trim().length > 0) {
       messageToSend = userMessage;
     } else {
       if (!baseName) {
-        // First-time user or user hasn't provided additional info.
-        messageToSend =
-          "Hello, welcome! It looks like you haven’t set up your onchain profile yet. Could you tell me a bit about yourself? I can help suggest a base name and recommend trading strategies based on your preferences.";
+        messageToSend = `Hello, welcome! It looks like you haven’t set up your onchain profile yet. Could you tell me a bit about yourself? I can help suggest a base name and recommend strategies based on your interests.`;
       } else {
-        // Returning user with profile info.
         messageToSend = `Welcome back, ${baseName}! How can I assist you today with your trading or onchain tasks?`;
       }
     }
@@ -132,8 +152,14 @@ export async function POST(request: Request) {
     console.log("User wallet:", userWallet);
     const { agent, config } = await initializeAgent();
 
+    // Provide both the system instructions and the user message as context for this conversation.
     const stream = await agent.stream(
-      { messages: [new HumanMessage(messageToSend)] },
+      {
+        messages: [
+          { role: "system", content: systemMessage },
+          new HumanMessage(messageToSend),
+        ],
+      },
       config
     );
 
