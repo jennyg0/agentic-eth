@@ -6,9 +6,9 @@ import { ChatOpenAI } from "@langchain/openai";
 import * as fs from "fs";
 import * as dotenv from "dotenv";
 import { createRequire } from "module";
+import { PrivyWalletProvider } from "./privyWalletProvider";
 
 dotenv.config();
-const WALLET_DATA_FILE = "wallet_data.txt";
 
 // Instructions for new users (no basename)
 const newUserInstructions = `
@@ -17,7 +17,7 @@ Follow this checklist precisely:
 
 1. **Greet & Introduce:** 
    - Welcome the user.
-   - Explain that you help set up their onchain profile and create a custom basename.
+   - Explain that you help set up their onchain profile and create a custom basename to set up their identity and have a unique name in the crypto world.
 2. **Collect Interests:** 
    - Ask the user about their interests to tailor a suggestion for a basename.
 3. **Suggest Basenames:** 
@@ -40,7 +40,7 @@ You are a friendly and knowledgeable crypto assistant on the Base Sepolia networ
 Greet the user by their existing basename and assist them with their onchain activities.
 When the user asks for information or actions, focus on tasks like trading, learning, or other onchain transactions.
 
-Always keep your responses clear, friendly, and concise. Use simple, non-technical language. Provide visual aids and examples. Warn about common scams and risks. Emphasize the importance of wallet security. Break down complex concepts into digestible pieces.
+Always keep your responses clear, friendly, and concise. Use simple, non-technical language. Provide visual aids and examples.å Emphasize the importance of wallet security. Break down complex concepts into digestible pieces.
 If you can't perform the action, say that you're unable to help with that task and suggest a resource or alternative action.
 `;
 
@@ -60,28 +60,35 @@ async function initializeAgent() {
 
   const { getLangChainTools } = await import("@coinbase/agentkit-langchain");
 
-  // Read stored wallet data if available.
-  let walletDataStr;
-  if (fs.existsSync(WALLET_DATA_FILE)) {
-    try {
-      walletDataStr = fs.readFileSync(WALLET_DATA_FILE, "utf8");
-    } catch (error) {
-      console.error("Error reading wallet data:", error);
-    }
-  }
+  // // Read stored wallet data if available.
+  // let walletDataStr;
+  // if (fs.existsSync(WALLET_DATA_FILE)) {
+  //   try {
+  //     walletDataStr = fs.readFileSync(WALLET_DATA_FILE, "utf8");
+  //   } catch (error) {
+  //     console.error("Error reading wallet data:", error);
+  //   }
+  // }
 
   // Configure wallet provider using environment variables.
-  const config = {
-    apiKeyName: process.env.CDP_API_KEY_NAME!,
-    apiKeyPrivateKey: process.env.CDP_API_KEY_PRIVATE_KEY?.replace(
-      /\\n/g,
-      "\n"
-    ),
-    cdpWalletData: walletDataStr || undefined,
-    networkId: process.env.NETWORK_ID || "base-sepolia",
-  };
+  // const config = {
+  //   apiKeyName: process.env.CDP_API_KEY_NAME!,
+  //   apiKeyPrivateKey: process.env.CDP_API_KEY_PRIVATE_KEY?.replace(
+  //     /\\n/g,
+  //     "\n"
+  //   ),
+  //   cdpWalletData: walletDataStr || undefined,
+  //   networkId: process.env.NETWORK_ID || "base-sepolia",
+  // };
 
-  const walletProvider = await CdpWalletProvider.configureWithWallet(config);
+  // const walletProvider = await CdpWalletProvider.configureWithWallet(config);
+  const walletProvider = await PrivyWalletProvider.configureWithWallet({
+    appId: process.env.NEXT_PUBLIC_PRIVY_APP_ID as string,
+    appSecret: process.env.PRIVY_APP_SECRET as string,
+    networkId: "base-sepolia",
+    walletId: "gg8b7ytyrv4tuoml2oilg8hd",
+    authorizationKey: process.env.PRIVY_AUTH_KEY,
+  });
 
   const agentkit = await AgentKit.from({
     walletProvider,
@@ -122,8 +129,8 @@ async function initializeAgent() {
     checkpointSaver: memory,
   });
 
-  const exportedWallet = await walletProvider.exportWallet();
-  fs.writeFileSync(WALLET_DATA_FILE, JSON.stringify(exportedWallet));
+  // const exportedWallet = await walletProvider.exportWallet();
+  // fs.writeFileSync(WALLET_DATA_FILE, JSON.stringify(exportedWallet));
 
   return { agent, config: agentConfig };
 }
