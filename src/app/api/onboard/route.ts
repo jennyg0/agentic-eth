@@ -15,9 +15,16 @@ export async function POST(request: Request) {
 
     const privy = new PrivyClient(
       process.env.NEXT_PUBLIC_PRIVY_APP_ID as string,
-      process.env.PRIVY_APP_SECRET as string
+      process.env.PRIVY_APP_SECRET as string,
+      {
+        walletApi: {
+          authorizationPrivateKey: process.env.PRIVY_AUTH_KEY,
+        },
+      }
     );
-
+    const { id, address, chainType } = await privy.walletApi.create({
+      chainType: "ethereum",
+    });
     // create an embedded wallet for the provided email
     const user = await privy.importUser({
       linkedAccounts: [
@@ -31,9 +38,11 @@ export async function POST(request: Request) {
       createEthereumSmartWallet: true,
       customMetadata: {
         onboardedBy: senderWallet,
+        walletId: id,
+        walletAddress: address,
       },
     });
-    console.log(user);
+    console.log(user, "id", id, "addr", address, "chain", chainType);
     // Return a successful response with the user data
     return NextResponse.json({ success: true, user });
   } catch (error) {
