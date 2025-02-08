@@ -9,38 +9,26 @@ import { PrivyWalletProvider } from "./privyWalletProvider";
 
 dotenv.config();
 
-// Instructions for new users (no basename)
 const newUserInstructions = `
-You are a friendly, efficient, and stateful crypto onboarding assistant operating only on the Base Sepolia network.
-Follow this checklist precisely:
-
-1. **Greet & Introduce:** 
-   - Welcome the user.
-   - Explain that you help set up their onchain profile and create a custom basename to set up their identity and have a unique name in the crypto world.
-2. **Collect Interests:** 
-   - Ask the user about their interests to tailor a suggestion for a basename.
-3. **Suggest Basenames:** 
-   - Offer personalized basename options and guide the registration process.
-4. **Post-Registration:** 
-   - Inform the user that their new basename replaces their long wallet address.
-5. **Offer Further Actions:** 
-   - Suggest activities such as sending a test transaction, yield opportunities, staking, NFT exploration, or accessing educational resources.
-
-**Error Handling:**  
-- Never include technical details.
-- On error, say: "There was an issue registering that basename. It might be taken or need a slight variation. Would you like to try another option?"
-
-Always keep your responses clear, friendly, and concise. Use simple, non-technical language
+You are a friendly and efficient crypto onboarding assistant on the Base Sepolia network.
+When the conversation starts (i.e. there is no prior user input), greet the user with a brief welcome message and explain that you can help them set up their onchain profile by creating a custom basename—a simple, human-friendly identifier for their wallet. 
+Explain that creating a basename requires a small on-chain transaction and a gas fee to register it.
+Ask the user about their interests or hobbies, then suggest several personalized basename options based on their input.
+Once the user picks a name, attempt to register it on-chain. If registration is successful, celebrate the new identifier by saying something like "Look at that—so much easier to read than your wallet address!" and guide them by suggesting that they try a small test transaction. For example, encourage them to send a little crypto to the address of the person who originally sent them funds (using their basename) to verify that everything works as expected.
+If the registration fails (for example, if the name is taken or needs a slight tweak), gently prompt them to try another variation.
+If the user provides further input after the initial welcome (such as questions or confirmations), respond directly to their input with clear, friendly instructions.
+Keep your language clear, friendly, and non-technical.
 `;
 
-// Instructions for returning users (with a basename)
 const returningUserInstructions = `
-You are a friendly and knowledgeable crypto assistant on the Base Sepolia network.
-Greet the user by their existing basename and assist them with their onchain activities.
-When the user asks for information or actions, focus on tasks like trading, learning, or other onchain transactions.
-
-Always keep your responses clear, friendly, and concise. Use simple, non-technical language. Provide visual aids and examples.å Emphasize the importance of wallet security. Break down complex concepts into digestible pieces.
-If you can't perform the action, say that you're unable to help with that task and suggest a resource or alternative action.
+You are a helpful crypto assistant on the Base Sepolia network.
+If this is the first interaction in the session, greet the user by their custom basename.
+For subsequent messages, do not include an initial greeting—simply respond directly to the user's query or request.
+Offer assistance with onchain activities such as trading, sending transactions, or exploring decentralized applications. 
+Always explain why you're suggesting an action and how it benefits the user. 
+Keep it simple and try to explain in terms that a non-crypto would understand. like if they ask how much money they have you can explain the eth about but also tell them how much in dollars it is.
+Keep your responses clear, concise, and friendly, and provide simple explanations for any technical terms. 
+Don't include object details like "Protocol Family: evm Network ID: base-sepolia"
 `;
 
 async function initializeAgent(metadata: any) {
@@ -58,7 +46,7 @@ async function initializeAgent(metadata: any) {
   const basenameActionProvider = agentkitModule.basenameActionProvider;
 
   const { getLangChainTools } = await import("@coinbase/agentkit-langchain");
-
+  console.log(metadata, "meta");
   const walletId = metadata?.walletId;
   if (!walletId) {
     throw new Error("Missing wallet id in metadata");
@@ -101,6 +89,7 @@ async function initializeAgent(metadata: any) {
   const tools = await getLangChainTools(agentkit);
   // Use a fresh memory for each conversation to avoid residual onboarding context
   const memory = new MemorySaver();
+  console.log("memory", memory);
   const agentConfig = {
     configurable: { thread_id: "CDP AgentKit Chatbot Example!" },
   };
@@ -117,35 +106,40 @@ async function initializeAgent(metadata: any) {
 
 export async function POST(request: Request) {
   try {
-    const { userMessage, userWallet, baseName, metadata } =
+    const { userMessage, userWallet, baseName, metadata, stage } =
       await request.json();
 
-    // Select system instructions based on whether the user already has a basename.
+    // Pick the system instructions based on whether a basename exists.
     const systemMessage = baseName
       ? returningUserInstructions
       : newUserInstructions;
 
-    // Build a dynamic greeting message.
-    let messageToSend;
-    if (userMessage && userMessage.trim().length > 0) {
-      messageToSend = userMessage;
-    } else {
-      if (!baseName) {
-        messageToSend = `Hello, welcome! It looks like you haven’t set up your onchain profile yet. Could you tell me a bit about yourself? I can help suggest a base name and recommend strategies based on your interests.`;
-      } else {
-        messageToSend = `Welcome back, ${baseName}! How can I assist you today with your trading or onchain tasks?`;
-      }
-    }
+    // If there's no user message, assume this is the start of the conversation.
+    // let messageToSend;
+    // console.log(userMessage, stage);
+    // if (
+    //   !userMessage ||
+    //   (userMessage.trim() === "" && stage === "welcomemessage")
+    // ) {
+    //   if (baseName) {
+    //     messageToSend = `Welcome back, ${baseName}! How can I assist you today with your onchain tasks?`;
+    //   } else {
+    //     messageToSend = `Hello, welcome! It looks like you haven’t set up your onchain profile yet. Could you tell me a bit about yourself? I can help suggest a custom basename that fits your interests.`;
+    //   }
+    // } else {
+    //   // If there is a user message, simply pass it along.
+    //   messageToSend = userMessage;
+    // }
 
-    console.log("User wallet:", userWallet);
+    // Initialize the agent (using your existing initialization code).
     const { agent, config } = await initializeAgent(metadata);
 
-    // Provide both the system instructions and the user message as context for this conversation.
+    // Pass the system message along with the message to send.
     const stream = await agent.stream(
       {
         messages: [
           { role: "system", content: systemMessage },
-          new HumanMessage(messageToSend),
+          new HumanMessage(userMessage),
         ],
       },
       config
