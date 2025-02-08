@@ -3,7 +3,6 @@ import { HumanMessage } from "@langchain/core/messages";
 import { MemorySaver } from "@langchain/langgraph";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { ChatOpenAI } from "@langchain/openai";
-import * as fs from "fs";
 import * as dotenv from "dotenv";
 import { createRequire } from "module";
 import { PrivyWalletProvider } from "./privyWalletProvider";
@@ -44,7 +43,7 @@ Always keep your responses clear, friendly, and concise. Use simple, non-technic
 If you can't perform the action, say that you're unable to help with that task and suggest a resource or alternative action.
 `;
 
-async function initializeAgent() {
+async function initializeAgent(metadata: any) {
   // Use CommonJS require via createRequire to avoid circular dependency issues
   const require = createRequire(import.meta.url);
   const agentkitModule = require("@coinbase/agentkit");
@@ -60,33 +59,17 @@ async function initializeAgent() {
 
   const { getLangChainTools } = await import("@coinbase/agentkit-langchain");
 
-  // // Read stored wallet data if available.
-  // let walletDataStr;
-  // if (fs.existsSync(WALLET_DATA_FILE)) {
-  //   try {
-  //     walletDataStr = fs.readFileSync(WALLET_DATA_FILE, "utf8");
-  //   } catch (error) {
-  //     console.error("Error reading wallet data:", error);
-  //   }
-  // }
-
-  // Configure wallet provider using environment variables.
-  // const config = {
-  //   apiKeyName: process.env.CDP_API_KEY_NAME!,
-  //   apiKeyPrivateKey: process.env.CDP_API_KEY_PRIVATE_KEY?.replace(
-  //     /\\n/g,
-  //     "\n"
-  //   ),
-  //   cdpWalletData: walletDataStr || undefined,
-  //   networkId: process.env.NETWORK_ID || "base-sepolia",
-  // };
+  const walletId = metadata?.walletId;
+  if (!walletId) {
+    throw new Error("Missing wallet id in metadata");
+  }
 
   // const walletProvider = await CdpWalletProvider.configureWithWallet(config);
   const walletProvider = await PrivyWalletProvider.configureWithWallet({
     appId: process.env.NEXT_PUBLIC_PRIVY_APP_ID as string,
     appSecret: process.env.PRIVY_APP_SECRET as string,
     networkId: "base-sepolia",
-    walletId: "gg8b7ytyrv4tuoml2oilg8hd",
+    walletId,
     authorizationKey: process.env.PRIVY_AUTH_KEY,
   });
 
@@ -129,15 +112,13 @@ async function initializeAgent() {
     checkpointSaver: memory,
   });
 
-  // const exportedWallet = await walletProvider.exportWallet();
-  // fs.writeFileSync(WALLET_DATA_FILE, JSON.stringify(exportedWallet));
-
   return { agent, config: agentConfig };
 }
 
 export async function POST(request: Request) {
   try {
-    const { userMessage, userWallet, baseName } = await request.json();
+    const { userMessage, userWallet, baseName, metadata } =
+      await request.json();
 
     // Select system instructions based on whether the user already has a basename.
     const systemMessage = baseName
@@ -157,7 +138,7 @@ export async function POST(request: Request) {
     }
 
     console.log("User wallet:", userWallet);
-    const { agent, config } = await initializeAgent();
+    const { agent, config } = await initializeAgent(metadata);
 
     // Provide both the system instructions and the user message as context for this conversation.
     const stream = await agent.stream(

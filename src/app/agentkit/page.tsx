@@ -20,7 +20,7 @@ export default function AgentChatPage() {
   const disableLogout = !ready || (ready && !authenticated);
 
   const { data: name, isLoading: nameIsLoading } = useName({
-    address: "0x5df0379b9c74d600c943e1f05150703c734263e4",
+    address: user?.wallet?.address as `0x${string}`,
     chain: baseSepolia,
   });
 
@@ -37,7 +37,7 @@ export default function AgentChatPage() {
       fetchWelcomeMessage();
     }
   }, [user, chatLog.length]);
-
+  console.log(user);
   const fetchWelcomeMessage = async () => {
     try {
       const res = await fetch("/api/agentkit/chat", {
@@ -47,6 +47,7 @@ export default function AgentChatPage() {
           userMessage: "",
           userWallet: user?.wallet?.address,
           baseName: name || null,
+          metadata: user?.customMetadata,
         }),
       });
       const data = await res.json();
@@ -86,6 +87,7 @@ export default function AgentChatPage() {
           userMessage: currentMessage,
           userWallet: user?.wallet?.address,
           baseName: name || null,
+          metadata: user?.customMetadata,
         }),
       });
       const data = await res.json();
@@ -135,10 +137,6 @@ export default function AgentChatPage() {
           <h1 className="text-2xl font-bold text-gray-800 mb-4">
             AgentKit Chat
           </h1>
-          <IdentityCard
-            address="0x5df0379b9c74D600C943e1F05150703C734263e4"
-            chain={baseSepolia}
-          />
 
           {/* Auth Section */}
           {user ? (
@@ -149,7 +147,10 @@ export default function AgentChatPage() {
                   <span className="font-semibold">{user.email?.address}</span>
                 </div>
                 <div className="text-xs text-gray-500">
-                  {user.wallet?.address}
+                  <IdentityCard
+                    address={user?.wallet?.address as `0x${string}`}
+                    chain={baseSepolia}
+                  />
                 </div>
               </div>
               <button
