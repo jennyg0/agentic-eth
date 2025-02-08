@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import ReactMarkdown from "react-markdown";
-
 import { IdentityCard, useName } from "@coinbase/onchainkit/identity";
 import { baseSepolia } from "viem/chains";
 
@@ -13,41 +12,41 @@ export default function AgentChatPage() {
     { sender: "User" | "Agent"; message: string }[]
   >([]);
   const [loading, setLoading] = useState(false);
-  // const [name, setName] = useState<string | null>(null);
-  const { ready, authenticated, login, logout, user } = usePrivy();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef(null);
 
+  const { ready, authenticated, login, logout, user } = usePrivy();
   const disableLogin = !ready || (ready && authenticated);
   const disableLogout = !ready || (ready && !authenticated);
-  console.log("Current user:", user);
 
   const { data: name, isLoading: nameIsLoading } = useName({
     address: "0x5df0379b9c74d600c943e1f05150703c734263e4",
     chain: baseSepolia,
   });
 
-  console.log("Name:", name);
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-  // Clear Privy session on page load bc in docs says for injected wallets (browser extensions), users can only disconnect their wallet from your site through their wallet
-  //   useEffect(() => {
-  //     localStorage.removeItem("privy:token");
-  //     localStorage.removeItem("privy:refresh_token");
-  //     localStorage.removeItem("privy:connections");
-  //     localStorage.removeItem("privy:pat");
-  //     localStorage.removeItem("privy:caid");
-  //   }, []);
+  useEffect(() => {
+    scrollToBottom();
+  }, [chatLog]);
 
-  // Function to fetch the welcome message from the agent.
-  // src/app/agentkit/page.tsx (excerpt)
+  useEffect(() => {
+    if (user?.wallet?.address && chatLog.length === 0) {
+      fetchWelcomeMessage();
+    }
+  }, [user, chatLog.length]);
+
   const fetchWelcomeMessage = async () => {
     try {
       const res = await fetch("/api/agentkit/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // Send an empty message plus extra info so that the backend can decide what to say.
         body: JSON.stringify({
           userMessage: "",
           userWallet: user?.wallet?.address,
-          baseName: name || null, // extra field for personalization
+          baseName: name || null,
         }),
       });
       const data = await res.json();
@@ -71,19 +70,12 @@ export default function AgentChatPage() {
     }
   };
 
-  // Automatically fetch the welcome message when the user and wallet are available.
-  useEffect(() => {
-    if (chatLog.length === 0 && user?.wallet?.address) {
-      fetchWelcomeMessage();
-    }
-  }, [user]);
-
   const handleSendMessage = async () => {
-    // Do nothing if there is no user message.
     if (userMessage.trim().length === 0) return;
 
-    // Log the user's message.
     setChatLog((prev) => [...prev, { sender: "User", message: userMessage }]);
+    const currentMessage = userMessage;
+    setUserMessage("");
     setLoading(true);
 
     try {
@@ -91,8 +83,9 @@ export default function AgentChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userMessage: userMessage,
+          userMessage: currentMessage,
           userWallet: user?.wallet?.address,
+          baseName: name || null,
         }),
       });
       const data = await res.json();
@@ -114,82 +107,121 @@ export default function AgentChatPage() {
         { sender: "Agent", message: "Error processing message." },
       ]);
     } finally {
-      setUserMessage("");
       setLoading(false);
+      inputRef.current?.focus();
     }
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  if (nameIsLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-pulse text-gray-600">Loading identity...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4">
-      <div className="w-full max-w-xl bg-white shadow-md rounded-lg p-6">
-        <h1 className="text-3xl font-bold mb-4 text-center text-gray-800">
-          AgentKit Chat
-        </h1>
-        <IdentityCard
-          address="0x5df0379b9c74D600C943e1F05150703C734263e4"
-          chain={baseSepolia}
-        />
-        {/* User Info */}
-        {user ? (
-          <div className="mb-4 text-center text-sm text-gray-600">
-            Signed in as: <strong>{user.email?.address}</strong>
-            <br />
-            Wallet: {user.wallet?.address}
-            <div className="mt-2">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center p-4">
+      <div className="w-full max-w-2xl bg-white shadow-xl rounded-2xl overflow-hidden">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-100 p-6">
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">
+            AgentKit Chat
+          </h1>
+          <IdentityCard
+            address="0x5df0379b9c74D600C943e1F05150703C734263e4"
+            chain={baseSepolia}
+          />
+
+          {/* Auth Section */}
+          {user ? (
+            <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+              <div>
+                <div>
+                  Signed in as:{" "}
+                  <span className="font-semibold">{user.email?.address}</span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  {user.wallet?.address}
+                </div>
+              </div>
               <button
                 disabled={disableLogout}
                 onClick={logout}
-                className="px-3 py-1 bg-red-500 text-white rounded"
+                className="px-4 py-2 bg-red-500 text-white rounded-lg transition-colors hover:bg-red-600 disabled:opacity-50"
               >
                 Log out
               </button>
             </div>
-          </div>
-        ) : (
-          <div className="mb-4 flex justify-center">
+          ) : (
             <button
               disabled={disableLogin}
               onClick={login}
-              className="px-4 py-2 bg-blue-600 text-white rounded"
+              className="w-full mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg transition-colors hover:bg-blue-700 disabled:opacity-50"
             >
               Sign In with Email
             </button>
-          </div>
-        )}
-
-        <div className="h-80 overflow-y-auto border rounded-lg p-4 bg-gray-100 space-y-4">
-          {chatLog.map((entry, idx) => (
-            <div
-              key={idx}
-              className={`p-3 rounded-lg shadow ${
-                entry.sender === "Agent"
-                  ? "bg-blue-100 text-blue-800 self-start"
-                  : "bg-green-100 text-green-800 self-end"
-              }`}
-            >
-              <strong>{entry.sender}:</strong>
-              <ReactMarkdown className="prose prose-sm">
-                {entry.message}
-              </ReactMarkdown>
-            </div>
-          ))}
+          )}
         </div>
 
-        <div className="flex mt-4">
-          <input
-            type="text"
-            value={userMessage}
-            onChange={(e) => setUserMessage(e.target.value)}
-            placeholder="Enter your message..."
-            className="flex-1 border border-gray-300 rounded-xl px-4 py-2 mr-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={loading}
-            className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700"
-          >
-            {loading ? "Sending..." : "Send"}
-          </button>
+        {/* Chat Messages */}
+        <div className="h-[500px] overflow-y-auto p-6 bg-gray-50">
+          <div className="space-y-4">
+            {chatLog.map((entry, idx) => (
+              <div
+                key={idx}
+                className={`flex ${
+                  entry.sender === "User" ? "justify-end" : "justify-start"
+                }`}
+              >
+                <div
+                  className={`max-w-[80%] p-4 rounded-2xl shadow-sm ${
+                    entry.sender === "Agent"
+                      ? "bg-white text-gray-800"
+                      : "bg-blue-600 text-white"
+                  }`}
+                >
+                  <ReactMarkdown className="prose prose-sm max-w-none">
+                    {entry.message}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 bg-white border-t border-gray-100">
+          <div className="flex items-center gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={userMessage}
+              onChange={(e) => setUserMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Type your message..."
+              className="flex-1 p-4 bg-gray-50 rounded-xl border-0 focus:ring-2 focus:ring-blue-500 transition-all"
+            />
+            <button
+              onClick={handleSendMessage}
+              disabled={loading || !userMessage.trim()}
+              className="px-6 py-4 bg-blue-600 text-white rounded-xl transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                "Send"
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
