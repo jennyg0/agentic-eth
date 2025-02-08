@@ -69,7 +69,8 @@ const Home: NextPage = () => {
         return;
       }
 
-      const newUserWallet = onboardData.user?.wallet?.address;
+      const newUserWallet = onboardData.user?.customMetadata.walletAddress;
+
       if (!newUserWallet) {
         setMessage("Onboarding error: No wallet address returned");
         setLoading(false);
@@ -77,11 +78,7 @@ const Home: NextPage = () => {
       }
 
       const txHash = await sendFunds(newUserWallet, amount);
-      setMessage(
-        `Success! Transaction hash: ${txHash.slice(0, 10)}...${txHash.slice(
-          -8
-        )}`
-      );
+      setMessage(`Success! Transaction hash: ${txHash}`);
     } catch (error: any) {
       console.error("Onboarding error:", error);
       setMessage("Failed to onboard user or send funds");
