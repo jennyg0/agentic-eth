@@ -2,7 +2,7 @@
 
 import { PrivyProvider } from "@privy-io/react-auth";
 import { OnchainKitProvider } from "@coinbase/onchainkit";
-import { baseSepolia } from "wagmi/chains"; // add baseSepolia for testing
+import { baseSepolia } from "wagmi/chains";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -19,6 +19,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         embeddedWallets: {
           createOnLogin: "users-without-wallets",
         },
+        defaultChain: baseSepolia,
+        supportedChains: [baseSepolia],
       }}
     >
       <OnchainKitProvider

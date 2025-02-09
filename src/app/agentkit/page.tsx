@@ -5,7 +5,8 @@ import { usePrivy } from "@privy-io/react-auth";
 import ReactMarkdown from "react-markdown";
 import { useName, Name } from "@coinbase/onchainkit/identity";
 import { baseSepolia } from "viem/chains";
-import { Gift, ChevronRight, Shield, CheckCircle } from "lucide-react";
+import { createPublicClient, http, formatEther } from "viem";
+import { Gift, ChevronRight, Shield, CheckCircle, Send } from "lucide-react";
 
 export default function OnboardingChatPage() {
   const [userMessage, setUserMessage] = useState("");
@@ -16,15 +17,16 @@ export default function OnboardingChatPage() {
   const [stage, setStage] = useState<"welcome" | "info" | "complete">(
     "welcome"
   );
+  const [ethBalance, setEthBalance] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { ready, authenticated, login, logout, user } = usePrivy();
   const disableLogin = !ready || (ready && authenticated);
   const disableLogout = !ready || (ready && !authenticated);
-
+  const USER_WALLET_ADDRESS = user?.customMetadata?.walletAddress;
   const { data: name, isLoading: nameIsLoading } = useName({
-    address: user?.customMetadata?.walletAddress as `0x${string}`,
+    address: USER_WALLET_ADDRESS as `0x${string}`,
     chain: baseSepolia,
   });
 
@@ -38,15 +40,34 @@ export default function OnboardingChatPage() {
 
   useEffect(() => {
     if (authenticated && stage === "welcome") {
-      setStage("complete");
+      setStage("info");
     }
   }, [authenticated, stage]);
 
+  // useEffect(() => {
+  //   if (USER_WALLET_ADDRESS && chatLog.length === 0 && !nameIsLoading) {
+  //     fetchWelcomeMessage();
+  //   }
+  // }, [user, nameIsLoading]);
+  console.log(name);
   useEffect(() => {
-    if (user?.wallet?.address && chatLog.length === 0 && !nameIsLoading) {
-      fetchWelcomeMessage();
+    if (USER_WALLET_ADDRESS) {
+      const client = createPublicClient({
+        chain: baseSepolia,
+        transport: http(),
+      });
+      client
+        .getBalance({ address: USER_WALLET_ADDRESS as `0x${string}` })
+        .then((balance) => {
+          const rawBalance = formatEther(balance);
+          const formattedBalance = parseFloat(rawBalance).toFixed(8);
+          setEthBalance(formattedBalance);
+        })
+        .catch((error) => {
+          console.error("Error fetching balance:", error);
+        });
     }
-  }, [user, nameIsLoading]);
+  }, [USER_WALLET_ADDRESS]);
 
   const fetchWelcomeMessage = async () => {
     try {
@@ -55,9 +76,9 @@ export default function OnboardingChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userMessage: "",
-          userWallet: user?.wallet?.address,
+          userWallet: USER_WALLET_ADDRESS,
           baseName: name || null,
-          stage: "welcomemessage", // for the initial welcome message
+          stage: "welcomemessage",
           metadata: user?.customMetadata,
         }),
       });
@@ -72,7 +93,6 @@ export default function OnboardingChatPage() {
           ...prev,
           { sender: "Agent", message: data.response || "No response" },
         ]);
-
         setStage("complete");
       }
     } catch (error) {
@@ -98,7 +118,7 @@ export default function OnboardingChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userMessage: currentMessage,
-          userWallet: user?.wallet?.address,
+          userWallet: USER_WALLET_ADDRESS,
           baseName: name || null,
           metadata: user?.customMetadata,
           stage: "complete",
@@ -138,31 +158,28 @@ export default function OnboardingChatPage() {
     }
   };
 
-  // Define stage components.
   const stages: {
     [key in "welcome" | "info" | "complete"]: { component: JSX.Element };
   } = {
     welcome: {
       component: (
         <div className="space-y-6 mb-6">
-          <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 p-6 rounded-xl">
+          <div className="bg-yellow-100 p-6 rounded-xl">
             <div className="flex items-center gap-3 mb-4">
-              <Gift className="w-6 h-6 text-blue-400" />
-              <h3 className="text-lg font-semibold">
-                You&apos;ve Received Crypto!
-              </h3>
+              <Gift className="w-6 h-6 text-yellow-500" />
+              <h3 className="text-lg font-semibold">You&apos;ve Got Crypto!</h3>
             </div>
-            <p className="text-gray-600">
-              Someone has sent you crypto! Let&apos;s help you claim it.
+            <p className="text-gray-700">
+              Someone sent you crypto! Let&apos;s help you claim it.
             </p>
           </div>
           {!authenticated && (
             <button
               onClick={login}
               disabled={disableLogin}
-              className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center gap-2 text-white hover:from-blue-600 hover:to-purple-600 transition-all"
+              className="w-full py-3 bg-black text-white rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition"
             >
-              Get Started with Email <ChevronRight className="w-4 h-4" />
+              Claim Your Crypto <ChevronRight className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -171,28 +188,26 @@ export default function OnboardingChatPage() {
     info: {
       component: (
         <div className="space-y-6 mb-6">
-          <div className="bg-white/10 p-6 rounded-xl shadow-lg">
+          <div className="bg-purple-100 p-6 rounded-xl">
             <div className="flex items-center gap-3 mb-4">
-              <Shield className="w-6 h-6 text-purple-400" />
-              <h3 className="text-lg font-semibold">
-                Getting Started in Crypto
-              </h3>
+              <Shield className="w-6 h-6 text-purple-500" />
+              <h3 className="text-lg font-semibold">Getting Started</h3>
             </div>
-            <p className="text-gray-600">
-              Your wallet is ready to use. Our AI assistant is here to guide you
-              through the exciting world of crypto—from trading and yield
-              opportunities to NFTs and more.
-            </p>
-            <p className="text-gray-600">
-              When you&apos;re ready to dive in, click &quot;Next&quot; to begin
-              chatting with our assistant.
+            <p className="text-gray-700">
+              Your wallet is ready. Our AI assistant will guide you through
+              crypto basics, trading, and more!
             </p>
           </div>
           <button
-            onClick={() => setStage("complete")}
-            className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center gap-2 text-white hover:from-blue-600 hover:to-purple-600 transition-all"
+            onClick={async () => {
+              await fetchWelcomeMessage();
+              // Optionally, if fetchWelcomeMessage no longer calls setStage,
+              // you can change the stage here after the API call.
+              setStage("complete");
+            }}
+            className="w-full py-3 bg-black text-white rounded-xl hover:opacity-90 transition"
           >
-            Next
+            Start Exploring
           </button>
         </div>
       ),
@@ -200,15 +215,30 @@ export default function OnboardingChatPage() {
     complete: {
       component: (
         <div className="space-y-6 mb-6">
-          <div className="bg-green-500/20 p-6 rounded-xl">
+          <div className="bg-green-100 p-6 rounded-xl">
             <div className="flex items-center gap-3 mb-4">
-              <CheckCircle className="w-6 h-6 text-green-400" />
-              <h3 className="text-lg font-semibold">All Set!</h3>
+              <CheckCircle className="w-6 h-6 text-green-500" />
+              <h3 className="text-lg font-semibold">You&apos;re All Set!</h3>
             </div>
-            <p className="text-gray-600">
-              You&apos;re all set to explore the world of crypto with our AI
-              assistant.
+            <p className="text-gray-700">
+              Chat with aether and dive into the crypto world!
             </p>
+            <div className="mt-4">
+              <h4 className="text-md font-semibold">Your Wallet Info:</h4>
+              <p className="text-gray-700">Name: {name || "N/A"}</p>
+              <p className="text-gray-700">
+                Balance: {ethBalance ? `${ethBalance} ETH` : "Loading..."}
+              </p>
+              <p className="text-gray-700">
+                Address:{" "}
+                {typeof USER_WALLET_ADDRESS === "string"
+                  ? `${USER_WALLET_ADDRESS.slice(
+                      0,
+                      6
+                    )}...${USER_WALLET_ADDRESS.slice(-4)}`
+                  : "N/A"}
+              </p>
+            </div>
           </div>
         </div>
       ),
@@ -216,50 +246,36 @@ export default function OnboardingChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col items-center p-4">
-      <div className="w-full max-w-2xl bg-white shadow-xl rounded-2xl overflow-hidden">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-100 p-6">
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">
-            Welcome to CryptoLaunch
-          </h1>
-          {user && (
-            <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-              <div>
-                <div>
-                  Signed in as:{" "}
-                  <span className="font-semibold">{user.email?.address}</span>
-                </div>
-                <div className="text-xs text-gray-500">
-                  <Name
-                    key={name}
-                    address={
-                      user?.customMetadata?.walletAddress as `0x${string}`
-                    }
-                    chain={baseSepolia}
-                    //className="h-24"
-                    // style={{ height: "96px" }}
-                  />
-                </div>
-              </div>
-              <button
-                disabled={disableLogout}
-                onClick={logout}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg transition-colors hover:bg-red-600 disabled:opacity-50"
-              >
-                Log out
-              </button>
-            </div>
-          )}
+    <div className="min-h-screen bg-gray-50 text-black font-sans">
+      <header className="flex justify-between items-center px-8 py-4">
+        <h1 className="text-3xl font-extrabold tracking-tight">Aether</h1>
+        {user && (
+          <button
+            disabled={disableLogout}
+            onClick={logout}
+            className="px-5 py-2 border-2 border-black rounded-full hover:bg-black hover:text-white transition"
+          >
+            Log Out
+          </button>
+        )}
+      </header>
+
+      <main className="container mx-auto px-8 py-12 grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <h2 className="text-5xl font-extrabold leading-tight mb-4">
+            Your Crypto Journey Starts Here
+          </h2>
+          <p className="text-lg text-gray-700 mb-8 max-w-lg">
+            Claim your basename, explore onchain opportunities, and learn the
+            basics of crypto.
+          </p>
+          {stages[stage].component}
         </div>
 
-        {/* Stage Component */}
-        <div className="p-6 bg-gray-50">{stages[stage].component}</div>
-
-        {/* Only show chat if the stage is "complete" */}
         {user && stage === "complete" && (
-          <>
-            <div className="h-[400px] overflow-y-auto p-6 bg-gray-50">
+          <div className="bg-white p-8 rounded-xl shadow-md border-2 border-black">
+            <h3 className="text-2xl font-bold mb-4">Chat with Aether</h3>
+            <div className="h-[400px] overflow-y-auto p-4 bg-gray-50 rounded-xl border border-black">
               <div className="space-y-4">
                 {chatLog.map((entry, idx) => (
                   <div
@@ -269,10 +285,10 @@ export default function OnboardingChatPage() {
                     }`}
                   >
                     <div
-                      className={`max-w-[80%] p-4 rounded-2xl shadow-sm ${
+                      className={`max-w-[80%] p-4 rounded-2xl shadow-md ${
                         entry.sender === "Agent"
-                          ? "bg-white text-gray-800"
-                          : "bg-blue-600 text-white"
+                          ? "bg-gray-100 text-black"
+                          : "bg-black text-white"
                       }`}
                     >
                       <ReactMarkdown className="prose prose-sm max-w-none">
@@ -284,70 +300,31 @@ export default function OnboardingChatPage() {
                 <div ref={messagesEndRef} />
               </div>
             </div>
-            <div className="p-4 bg-white border-t border-gray-100">
-              <div className="flex items-center gap-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={userMessage}
-                  onChange={(e) => setUserMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Chat with your AI assistant..."
-                  className="flex-1 p-4 bg-gray-50 rounded-xl border-0 focus:ring-2 focus:ring-blue-500 transition-all"
-                />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={loading || !userMessage.trim()}
-                  className="px-6 py-4 bg-blue-600 text-white rounded-xl transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    "Send"
-                  )}
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Progress Indicator - only show if not complete */}
-        {stage !== "complete" && (
-          <div className="px-6 py-4 bg-white border-t border-gray-100">
-            <div className="flex justify-between">
-              {Object.keys(stages).map((key, index) => (
-                <div
-                  key={key}
-                  className={`flex items-center ${
-                    index !== Object.keys(stages).length - 1 ? "flex-1" : ""
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full ${
-                      Object.keys(stages).indexOf(stage) >= index
-                        ? "bg-blue-500"
-                        : "bg-gray-200"
-                    }`}
-                  >
-                    {Object.keys(stages).indexOf(stage) > index && (
-                      <CheckCircle className="w-4 h-4 text-white" />
-                    )}
-                  </div>
-                  {index !== Object.keys(stages).length - 1 && (
-                    <div
-                      className={`flex-1 h-1 mx-2 ${
-                        Object.keys(stages).indexOf(stage) > index
-                          ? "bg-blue-500"
-                          : "bg-gray-200"
-                      }`}
-                    />
-                  )}
-                </div>
-              ))}
+            <div className="mt-4 flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={userMessage}
+                onChange={(e) => setUserMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask me anything about crypto..."
+                className="flex-1 p-4 bg-gray-50 border border-black rounded-xl focus:ring-2 focus:ring-black"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={loading || !userMessage.trim()}
+                className="px-4 py-3 bg-black text-white rounded-xl hover:opacity-90 transition"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </button>
             </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

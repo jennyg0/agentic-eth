@@ -1,9 +1,10 @@
 import { MemorySaver } from "@langchain/langgraph";
 import { SecretVaultWrapper } from "nillion-sv-wrappers";
+
 export class NillionMemorySaver extends MemorySaver {
   /**
    * @param {object} orgConfig - Configuration for the Nillion vault (nodes, credentials, etc.)
-   * @param {string} schemaId - (Optional) Your schema identifier, if you use it elsewhere in your code
+   * @param {string} schemaId - Your schema identifier
    * @param {object} options - Additional options if needed
    */
   orgConfig;
@@ -20,9 +21,11 @@ export class NillionMemorySaver extends MemorySaver {
       ...options,
     });
     this.orgConfig = orgConfig;
-    this.schemaId = schemaId; // You can keep this for your own usage if needed.
+    this.schemaId = schemaId;
     this.initialized = false;
-    // **Remove the third argument from SecretVaultWrapper!**
+    this.walletId = options.walletId;
+
+    this.secretKey = orgConfig.credentials.secretKey;
     this.vault = new SecretVaultWrapper(
       this.orgConfig.nodes,
       this.orgConfig.orgCredentials
@@ -32,6 +35,9 @@ export class NillionMemorySaver extends MemorySaver {
 
   async initVault() {
     // Perform any initialization required.
+    if (!this.secretKey) {
+      throw new Error("Secret Key is not defined");
+    }
     this.initialized = true;
   }
 
@@ -40,12 +46,11 @@ export class NillionMemorySaver extends MemorySaver {
     const data = { conversation: this.memory || [] };
     try {
       const dataWritten = await this.vault.writeToNodes(data);
-      console.log("Memory persisted to Nillion:", dataWritten);
       this.recordIds = [
         ...new Set(dataWritten.map((item) => item.result.data.created).flat()),
       ];
     } catch (error) {
-      console.error("Error saving memory to Nillion:", error);
+      console.error("Error writing to nodes:", error);
     }
   }
 

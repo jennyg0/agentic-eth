@@ -14,7 +14,7 @@ dotenv.config();
 const orgConfig = {
   // demo org credentials
   // in a production environment, make sure to put your org's credentials in environment variables
-  orgCredentials: {
+  credentials: {
     secretKey:
       "a786abe58f933e190d01d05b467838abb1e391007a674d8a3aef106e15a0bf5a",
     orgDid: "did:nil:testnet:nillion1vn49zpzgpagey80lp4xzzefaz09kufr5e6zq8c",
@@ -38,7 +38,7 @@ const orgConfig = {
 
 const orgNillion = new SecretVaultWrapper(
   orgConfig.nodes,
-  orgConfig.orgCredentials
+  orgConfig.credentials
 );
 
 const newUserInstructions = `
@@ -146,8 +146,7 @@ async function initializeAgent(metadata: any) {
   const agentConfig = {
     configurable: { thread_id: "AgentKit Chatbot!" },
   };
-
-  //const memory = new MemorySaver();
+  // const memory = new MemorySaver();
   // Create the agent without a static messageModifier so we can pass our system message per request
   const agent = createReactAgent({
     llm: new ChatOpenAI({ model: "gpt-4o-mini" }),

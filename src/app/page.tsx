@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { NextPage } from "next";
 import { usePrivy, useConnectWallet } from "@privy-io/react-auth";
 import { parseUnits } from "viem";
-import { ArrowRight, Wallet, Mail, Coins } from "lucide-react";
+import { ArrowRight, Wallet, Rocket, Coins } from "lucide-react";
 
 const Home: NextPage = () => {
   const [senderWallet, setSenderWallet] = useState<string>("");
@@ -23,7 +23,6 @@ const Home: NextPage = () => {
     },
   });
 
-  // Helper functions remain the same
   const sendFunds = async (recipientAddress: string, amountEth: string) => {
     if (typeof window === "undefined" || !(window as any).ethereum) {
       throw new Error("No wallet provider found");
@@ -64,7 +63,7 @@ const Home: NextPage = () => {
       });
       const onboardData = await onboardRes.json();
       if (!onboardRes.ok) {
-        setMessage(`Onboarding error: ${onboardData.error}`);
+        setMessage(`Oops! Something went wrong: ${onboardData.error}`);
         setLoading(false);
         return;
       }
@@ -72,149 +71,144 @@ const Home: NextPage = () => {
       const newUserWallet = onboardData.user?.customMetadata.walletAddress;
 
       if (!newUserWallet) {
-        setMessage("Onboarding error: No wallet address returned");
+        setMessage("Couldn't find the wallet address. Try again!");
         setLoading(false);
         return;
       }
 
       const txHash = await sendFunds(newUserWallet, amount);
-      setMessage(`Success! Transaction hash: ${txHash}`);
+      setMessage(`Funds sent! 🎉 Transaction hash: ${txHash}`);
     } catch (error: any) {
       console.error("Onboarding error:", error);
-      setMessage("Failed to onboard user or send funds");
+      setMessage("Something went wrong while onboarding. Try again!");
     }
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-black text-white">
-      {/* Hero Section */}
-      <div className="container mx-auto px-6 pt-16 pb-8">
-        <h1 className="text-5xl font-bold text-center mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-          CryptoLaunch
-        </h1>
-        <p className="text-xl text-center text-gray-300 mb-12">
-          Your gateway to the world of cryptocurrency - Simple, secure, and
-          instant
-        </p>
-      </div>
+    <div className="min-h-screen bg-gray-50 text-black font-sans">
+      {/* Header Section */}
+      <header className="flex justify-between items-center px-8 py-4">
+        <h1 className="text-3xl font-extrabold tracking-tight">Aether</h1>
+        <button
+          onClick={connectWallet}
+          className="px-5 py-2 border-2 border-black rounded-full hover:bg-black hover:text-white transition"
+        >
+          {senderWallet ? "Wallet Connected" : "Connect Wallet"}
+        </button>
+      </header>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-6 flex flex-col items-center">
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-4xl mb-12">
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
-            <Wallet className="w-8 h-8 text-blue-400 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Secure Wallets</h3>
-            <p className="text-gray-300">
-              Instantly create and manage digital wallets with bank-grade
-              security
-            </p>
-          </div>
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
-            <Coins className="w-8 h-8 text-purple-400 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Easy Transfers</h3>
-            <p className="text-gray-300">
-              Send crypto to anyone, anywhere - all they need is an email
-            </p>
-          </div>
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
-            <Mail className="w-8 h-8 text-pink-400 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Email Access</h3>
-            <p className="text-gray-300">
-              No complex keys or passwords - just use your email to get started
-            </p>
-          </div>
+      {/* Hero Section with Form */}
+      <section className="flex flex-col md:flex-row p-12">
+        <div className="md:w-2/3 pl-4">
+          <h2 className="text-6xl font-extrabold leading-tight mb-4 pt-10">
+            Bring your Friends Onchain
+          </h2>
+          <p className="text-lg text-gray-600 mb-8 max-w-lg">
+            Send crypto to anyone’s email, and let us guide them through their
+            first onchain experience.
+          </p>
+          <button
+            onClick={connectWallet}
+            className="py-3 px-6 bg-black text-white text-lg font-medium rounded-full hover:opacity-90 transition"
+          >
+            {senderWallet
+              ? "Wallet connected"
+              : "Connect your wallet to get started"}
+          </button>
         </div>
 
-        {/* Onboarding Card */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 max-w-md w-full mb-12">
-          {!senderWallet ? (
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-6">Get Started</h2>
-              <button
-                onClick={connectWallet}
-                className="w-full py-3 px-6 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
-              >
-                <Wallet className="w-5 h-5" />
-                Connect Wallet
-              </button>
-            </div>
-          ) : (
+        {/* Onboarding Form Positioned Beside Hero Text */}
+        <div className="bg-white p-8 rounded-xl shadow-md border-2 border-black w-full max-w-md">
+          <h3 className="text-2xl font-bold mb-4">Send Crypto Now</h3>
+          <form onSubmit={handleOnboard} className="space-y-6">
             <div>
-              <h2 className="text-2xl font-bold mb-6 text-center">
-                Send Crypto
-              </h2>
-              <p className="text-sm text-gray-300 mb-6 break-all">
-                Connected: {senderWallet.slice(0, 6)}...{senderWallet.slice(-4)}
-              </p>
-              <form onSubmit={handleOnboard} className="space-y-6">
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-gray-300 mb-2 text-sm"
-                  >
-                    Recipient Email
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    placeholder="recipient@example.com"
-                    className="w-full px-4 py-3 bg-white/5 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-white placeholder-gray-400"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="amount"
-                    className="block text-gray-300 mb-2 text-sm"
-                  >
-                    Amount (ETH)
-                  </label>
-                  <input
-                    id="amount"
-                    type="number"
-                    step="0.001"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    required
-                    placeholder="0.001"
-                    className="w-full px-4 py-3 bg-white/5 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 transition text-white placeholder-gray-400"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    "Processing..."
-                  ) : (
-                    <>
-                      Send Funds
-                      <ArrowRight className="w-5 h-5" />
-                    </>
-                  )}
-                </button>
-              </form>
+              <label
+                htmlFor="email"
+                className="block text-gray-700 mb-1 font-medium"
+              >
+                Recipient's Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-4 py-3 border border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                placeholder="friend@example.com"
+              />
             </div>
-          )}
+            <div>
+              <label
+                htmlFor="amount"
+                className="block text-gray-700 mb-1 font-medium"
+              >
+                Amount (ETH)
+              </label>
+              <input
+                id="amount"
+                type="number"
+                step="0.001"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+                className="w-full px-4 py-3 border border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                placeholder="0.001"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading || !senderWallet}
+              className="w-full py-3 bg-black text-white font-bold rounded-full hover:opacity-90 transition"
+            >
+              {loading ? "Sending..." : "Send Now"}
+              <ArrowRight className="w-5 h-5 ml-2 inline" />
+            </button>
+          </form>
 
           {message && (
             <div
-              className={`mt-6 p-4 rounded-xl ${
+              className={`mt-6 p-4 rounded-lg text-center ${
                 message.includes("Success")
-                  ? "bg-green-500/20 text-green-300"
-                  : "bg-red-500/20 text-red-300"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-red-100 text-red-800"
               }`}
             >
               {message}
             </div>
           )}
         </div>
-      </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="container mx-auto px-8 py-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="p-6 rounded-xl border-2 border-black">
+          <Wallet className="w-10 h-10 mb-4 text-black" />
+          <h3 className="text-xl font-semibold mb-2">Effortless Setup</h3>
+          <p className="text-gray-600">
+            Instantly create wallets without any complicated setup.
+          </p>
+        </div>
+        <div className="p-6 rounded-xl border-2 border-black">
+          <Coins className="w-10 h-10 mb-4 text-black" />
+          <h3 className="text-xl font-semibold mb-2">Send via Email</h3>
+          <p className="text-gray-600">
+            Send crypto using just an email address—no wallet needed for the
+            recipient.
+          </p>
+        </div>
+        <div className="p-6 rounded-xl border-2 border-black">
+          <Rocket className="w-10 h-10 mb-4 text-black" />
+          <h3 className="text-xl font-semibold mb-2">
+            Explore Onchain with Confidence
+          </h3>
+          <p className="text-gray-600">
+            Discover decentralized apps, manage your crypto, and learn on the go
+            with personalized tips.
+          </p>
+        </div>
+      </section>
     </div>
   );
 };
