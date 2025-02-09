@@ -1,7 +1,6 @@
 "use client";
 
 import { PrivyProvider } from "@privy-io/react-auth";
-import type { ReactNode } from "react";
 import { OnchainKitProvider } from "@coinbase/onchainkit";
 import { baseSepolia } from "wagmi/chains"; // add baseSepolia for testing
 

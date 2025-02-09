@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, JSX } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import ReactMarkdown from "react-markdown";
-import { IdentityCard, useName, Name } from "@coinbase/onchainkit/identity";
+import { useName, Name } from "@coinbase/onchainkit/identity";
 import { baseSepolia } from "viem/chains";
 import { Gift, ChevronRight, Shield, CheckCircle } from "lucide-react";
 
@@ -13,9 +13,11 @@ export default function OnboardingChatPage() {
     { sender: "User" | "Agent"; message: string }[]
   >([]);
   const [loading, setLoading] = useState(false);
-  const [stage, setStage] = useState("welcome"); // "welcome", "info", "complete"
+  const [stage, setStage] = useState<"welcome" | "info" | "complete">(
+    "welcome"
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { ready, authenticated, login, logout, user } = usePrivy();
   const disableLogin = !ready || (ready && authenticated);
@@ -129,7 +131,7 @@ export default function OnboardingChatPage() {
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -137,17 +139,21 @@ export default function OnboardingChatPage() {
   };
 
   // Define stage components.
-  const stages = {
+  const stages: {
+    [key in "welcome" | "info" | "complete"]: { component: JSX.Element };
+  } = {
     welcome: {
       component: (
         <div className="space-y-6 mb-6">
           <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 p-6 rounded-xl">
             <div className="flex items-center gap-3 mb-4">
               <Gift className="w-6 h-6 text-blue-400" />
-              <h3 className="text-lg font-semibold">You've Received Crypto!</h3>
+              <h3 className="text-lg font-semibold">
+                You&apos;ve Received Crypto!
+              </h3>
             </div>
             <p className="text-gray-600">
-              Someone has sent you crypto! Let's help you claim it.
+              Someone has sent you crypto! Let&apos;s help you claim it.
             </p>
           </div>
           {!authenticated && (
@@ -178,8 +184,8 @@ export default function OnboardingChatPage() {
               opportunities to NFTs and more.
             </p>
             <p className="text-gray-600">
-              When you're ready to dive in, click "Next" to begin chatting with
-              our assistant.
+              When you&apos;re ready to dive in, click &quot;Next&quot; to begin
+              chatting with our assistant.
             </p>
           </div>
           <button
@@ -200,7 +206,7 @@ export default function OnboardingChatPage() {
               <h3 className="text-lg font-semibold">All Set!</h3>
             </div>
             <p className="text-gray-600">
-              You're all set to explore the world of crypto with our AI
+              You&apos;re all set to explore the world of crypto with our AI
               assistant.
             </p>
           </div>
