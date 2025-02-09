@@ -1,0 +1,14 @@
+{
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/agentkit",
+      "has": [
+        {
+          "type": "host",
+          "value": "agent.agentic-eth-chi.vercel.app"
+        }
+      ]
+    }
+  ]
+}
