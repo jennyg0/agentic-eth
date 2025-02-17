@@ -105,8 +105,8 @@ const Home: NextPage = () => {
             Bring your Friends Onchain
           </h2>
           <p className="text-lg text-gray-600 mb-8 max-w-lg">
-            Send crypto to anyone’s email, and let us guide them through their
-            first onchain experience.
+            Send crypto to anyone&apos;s email, and let us guide them through
+            their first onchain experience.
           </p>
           <button
             onClick={connectWallet}
@@ -127,7 +127,7 @@ const Home: NextPage = () => {
                 htmlFor="email"
                 className="block text-gray-700 mb-1 font-medium"
               >
-                Recipient's Email
+                Recipient&apos;s Email
               </label>
               <input
                 id="email"

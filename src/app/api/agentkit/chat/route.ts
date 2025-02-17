@@ -137,16 +137,16 @@ async function initializeAgent(metadata: any) {
 
   const tools = await getLangChainTools(agentkit);
   // Use a fresh memory for each conversation to avoid residual onboarding context
-  const memory = new NillionMemorySaver(
-    orgNillion,
-    "fe430061-82eb-4fef-bca7-94b5e5436fd0",
-    walletId
-  );
-  await memory.loadMemory();
+  // const memory = new NillionMemorySaver(
+  //   orgNillion,
+  //   "fe430061-82eb-4fef-bca7-94b5e5436fd0",
+  //   walletId
+  // );
+  // await memory.loadMemory();
   const agentConfig = {
     configurable: { thread_id: "AgentKit Chatbot!" },
   };
-  // const memory = new MemorySaver();
+  const memory = new MemorySaver();
   // Create the agent without a static messageModifier so we can pass our system message per request
   const agent = createReactAgent({
     llm: new ChatOpenAI({ model: "gpt-4o-mini" }),
@@ -165,7 +165,7 @@ interface SessionState {
   };
 }
 
-let sessionState: SessionState = {};
+const sessionState: SessionState = {};
 export async function POST(request: Request) {
   try {
     const { userMessage, metadata, userId, baseName } = await request.json();
